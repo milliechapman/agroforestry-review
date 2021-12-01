@@ -1,0 +1,207 @@
+---
+title: "analaysis old"
+output: html_document
+---
+
+Panel A (centralized and decentralized)
+
+```{r fig.height=4, fig.width=8}
+a <-df %>%
+  group_by(yr, name) %>%
+  summarise(count = sum(value),
+            total_words = sum(total_words)) %>%
+  mutate(TF = count/total_words) %>%
+  filter(yr >1980 & yr<2021) %>%
+  filter(name == "centralized" | name == "decentralized") %>%
+  ggplot(aes(x = yr, y = TF*1000, color = name , type = name)) +
+  geom_line() + 
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.title.x = element_blank()) +
+  expand_limits(x = c(1980, 2025)) +
+  geom_dl(aes(label = name), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5)) 
+
+```
+
+# 
+```{r fig.width = 4, fig.height=4}
+b <- df %>%
+    filter(agroforestry>quantile(df$agroforestry,0.25)) %>%
+  group_by(yr, name) %>%
+  summarise(count = sum(value),
+            total_words = sum(total_words)) %>%
+  mutate(TF = count/total_words) %>%
+  filter(yr >1980 & yr<2021) %>%
+  filter(name != "centralized" & name != "decentralized") %>%
+  filter(name == "agreements" |  
+           name == "policy" |
+             name == "spatial" | 
+              name == "institutions") %>%
+  ggplot(aes(x = yr, y = TF*1000, color = name , type = name)) +
+  geom_line() + 
+  theme_classic() +
+    geom_vline(xintercept = 2007, colour="grey", linetype = "dashed") +
+    geom_text(aes(x=2005.5, label="IPCC", y=10), colour="grey", angle= 90, text=element_text(size=4)) +
+  theme(legend.position = "none",
+        axis.title.x = element_blank()) +
+  expand_limits(x = c(1980, 2025)) +
+  geom_dl(aes(label = name), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5)) 
+
+```
+
+
+```{r fig.width= 4, fig.height=4}
+c <- df %>%
+    filter(agroforestry>quantile(df$agroforestry,0.25)) %>%
+  group_by(yr, name) %>%
+  summarise(count = sum(value),
+            total_words = sum(total_words)) %>%
+  mutate(TF = count/total_words) %>%
+  filter(yr >1980 & yr<2021) %>%
+  filter(name != "centralized" & name != "decentralized") %>%
+  filter(name != "agreements" &  
+           name != "policy" &
+             name != "spatial" & 
+              name != "institutions") %>%
+  ggplot(aes(x = yr, y = TF*1000, color = name , type = name)) +
+  geom_line() + 
+  theme_classic() +
+  theme(legend.position = "none",
+        axis.title.x = element_blank()) +
+  expand_limits(x = c(1980, 2025)) +
+  geom_dl(aes(label = name), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5)) 
+
+```
+
+```{r fig.width=8, fig.height=6, dpi = 300}
+ggarrange(a,                                                 # First row with scatter plot
+          ggarrange(b, c, ncol = 2, labels = c("B", "C")), # Second row with box and dot plots
+          nrow = 2, 
+          labels = "A"  )                                      # Labels of the scatter plot
+```
+
+
+##
+
+
+```{r}
+df %>%
+  filter(agroforestry>quantile(df$agroforestry,0.25)) %>%
+  filter(name == "centralized" | name == "decentralized") %>%
+  pivot_wider(id_cols = c(yr,ID, total_words), names_from = name, values_from = TF) %>%
+  mutate(ratio = centralized/(decentralized+centralized))%>%
+  mutate(decade = ifelse(yr>1980 & yr<1990, "80s", 
+                         ifelse(yr>1989 & yr<2000, "90s",
+                                ifelse(yr>1999 & yr<2010, "00s",
+                                      ifelse(yr>2009 & yr<2020, "10s", "20s"))))) %>%
+  filter(yr>1980 & yr<2020) %>%
+  drop_na() %>%
+  #mutate(perc_words = total_words/yr_words) %>%
+  #mutate(ratio_weight = ratio * perc_words) %>%
+  #group_by(yr) %>%
+  #summarise(ratio = mean(ratio)) %>%
+  ggplot(aes(x = ratio, fill = decade)) + geom_histogram() +
+  facet_grid(rows = vars(decade))
+```
+
+
+
+
+```{r}
+coord <- df %>%
+  filter(name != "centralized" & name != "decentralized") %>%
+  pivot_wider(id_cols = c(yr,ID, total_words), names_from = name, values_from = TF) %>%
+  select(agreements:methods) 
+
+```
+
+```{r fig.height=6, fig.width=8}
+cormat <-cor(coord)
+library(reshape2)
+melted_cormat <- melt(cormat)
+
+ggplot(data = melted_cormat, aes(x=Var1, y=Var2, fill=value)) + 
+  geom_tile() + theme_classic() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+```
+
+```{r}
+# install if necessary
+# install.packages('igraph')
+library(igraph)
+ 
+my_adj_list <- melted_cormat %>% filter(value > 0.95)
+
+# create igraph S3 object
+net <- graph.data.frame(melted_cormat, directed = FALSE)
+ 
+# store original margins
+orig_mar <- par()$mar
+ 
+# set new margins to limit whitespace in plot
+par(mar=rep(.1, 4))
+
+# not much difference in the edge width given the values
+# but I included it for reference's sake
+plot(net, layout = layout_components(net), edge.width = E(net)$weight)
+plot(net, layout = layout_components(net), edge.width = E(net)$weight, vertex.shape="none")
+```
+
+
+
+
+```{r}
+normalize2 <- function(x, na.rm = T) (x  / max(x, na.rm = T))
+df_filter <- df %>%
+  filter(agroforestry>quantile(df$agroforestry,0.25)) %>%
+  pivot_wider(id_cols = c(ID, yr),names_from = name, values_from = TF) 
+
+df_filter%>% 
+  mutate_at('centralized', normalize2) %>%
+  mutate_at('decentralized', normalize2) %>%
+  filter(centralized < 1) %>%
+  ggplot(aes(x=centralized, y = decentralized, col = yr)) +geom_point()
+```
+
+
+
+  
+agroforestry %>%
+  ggplot(aes(x = yr, y = agroforestry_1)) +
+  geom_line()
+
+agroforestry %>% select(yr, transition_1, adoption_1) %>%
+  pivot_longer(-yr) %>%
+  ggplot(aes(x = yr, y = value, col = name)) +
+  geom_line()
+
+
+agroforestry %>% filter(yr>1980) %>%
+  select(yr, agroforestry_1, climate_1, carbon_1, IPCC_1, 
+          mitigation_1, NDC_1, NCS_1) %>%
+  pivot_longer(-c(yr, agroforestry_1)) %>%
+  ggplot(aes(x = yr, y = value/agroforestry_1, col = name)) +
+  geom_line()
+
+
+agroforestry %>% filter(yr>1980) %>%
+  select(yr, agroforestry_1, adaptation_1 , resilience_1,
+         farmers_1, farm_1) %>%
+  pivot_longer(-c(yr, agroforestry_1)) %>%
+  ggplot(aes(x = yr, y = value/agroforestry_1, col = name)) +
+  geom_line()
+
+agroforestry %>% filter(yr>1980) %>%
+  select(yr,agroforestry_1, local_1, national_1 , international_1,
+         global_1, `multi-scalar_1`) %>%
+  pivot_longer(-c(yr, agroforestry_1)) %>%
+  ggplot(aes(x = yr, y = value/agroforestry_1, col = name)) +
+  geom_line()
+
+agroforestry %>% filter(yr>1980) %>%
+  select(yr,agroforestry_1, feminist_1, postcolonial_1, social_1, gender_1, indigenous_1, SES_1) %>%
+  pivot_longer(-c(yr, agroforestry_1)) %>%
+  ggplot(aes(x = yr, y = value/agroforestry_1, col = name)) +
+  geom_line()
+```
