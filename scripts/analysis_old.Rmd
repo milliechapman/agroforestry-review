@@ -84,7 +84,7 @@ ggarrange(a,                                                 # First row with sc
 ##
 
 
-```{r}
+```{r dpi = 300}
 df %>%
   filter(agroforestry>quantile(df$agroforestry,0.25)) %>%
   filter(name == "centralized" | name == "decentralized") %>%
@@ -115,7 +115,7 @@ coord <- df %>%
 
 ```
 
-```{r fig.height=6, fig.width=8}
+```{r fig.height=6, fig.width=8, dpi = 300}
 cormat <-cor(coord)
 library(reshape2)
 melted_cormat <- melt(cormat)
