@@ -527,12 +527,7 @@ a <- df_aggregate_reports %>%
   mutate(rel_frequency = (TF_reports-TF_academic)/TF_reports) %>%
   group_by(name, theme) %>% 
   summarise(rel_frequency = mean(rel_frequency, na.rm = TRUE)) %>% 
-  drop_na() %>%
-  ggplot(aes(x=reorder(name,rel_frequency) , y = rel_frequency, fill = theme)) + geom_col() +
-  theme_classic() + theme(legend.position = "bottom", legend.title = element_blank(), legend.text = element_text(size = 7))+      
-  scale_fill_met_d("Cross") + geom_hline(yintercept = 0, linetype = "dashed") +
-  labs(y = "relative term frequency") +
-  coord_flip()  + theme(axis.title.y = element_blank())
+  drop_na() 
 ```
 
     ## `summarise()` has grouped output by 'yr', 'name'. You can override using the `.groups` argument.
@@ -557,13 +552,8 @@ b <- df_aggregate_reports %>%
   mutate_all(~replace(., . == 0, NA)) %>%
   mutate(rel_frequency = (TF_reports-TF_academic)/TF_reports) %>%
   group_by(name, theme) %>% 
-  summarise(rel_frequency = mean(rel_frequency, na.rm = TRUE)) %>% 
-  drop_na() %>%
-  ggplot(aes(x=reorder(name,rel_frequency) , y = rel_frequency, fill = theme)) + geom_col() +
-  theme_classic() + theme(legend.position = "bottom", legend.title = element_blank(), legend.text = element_text(size = 7))+      
-  scale_fill_met_d("Cross") + geom_hline(yintercept = 0, linetype = "dashed") +
-  labs(y = "relative term frequency") +
-  coord_flip()  + theme(axis.title.y = element_blank())
+  summarise(rel_frequency_2010 = mean(rel_frequency, na.rm = TRUE)) %>% 
+  drop_na()
 ```
 
     ## `summarise()` has grouped output by 'yr', 'name'. You can override using the `.groups` argument.
@@ -577,8 +567,21 @@ b <- df_aggregate_reports %>%
     ## `summarise()` has grouped output by 'name'. You can override using the `.groups` argument.
 
 ``` r
-a+ b + plot_annotation(tag_levels = 'A') &
-  theme(legend.position = "bottom") 
+a %>% left_join(b) %>% 
+  select(-theme) %>% drop_na() %>%
+  pivot_longer(!name, names_to = "date", values_to = "rel_frequency") %>%
+  mutate(color = 
+           ifelse(date == "rel_frequency_2010" & rel_frequency >0, "a",
+                  ifelse(date == "rel_frequency_2010" & rel_frequency <=0, "b",
+                     ifelse(date != "rel_frequency_2010" & rel_frequency >0, "c","d")))) %>%
+  ggplot(aes(x=reorder(name,rel_frequency) , y = rel_frequency, fill = color)) + geom_col(position = "dodge", width = 0.7) +
+  theme_classic() + theme(legend.position = "none", legend.title = element_blank(), legend.text = element_text(size = 7))+      
+  scale_fill_manual(values = c("lightblue", "pink", "darkblue", "darkred")) + 
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(y = "relative term frequency") +
+  coord_flip()  + theme(axis.title.y = element_blank())
 ```
+
+    ## Joining, by = c("name", "theme")
 
 ![](analysis_files/figure-gfm/fig4b-1.png)<!-- -->
