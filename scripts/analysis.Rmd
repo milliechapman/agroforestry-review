@@ -252,7 +252,31 @@ a <- df_aggregate %>%
   expand_limits(x = c(1980, 2025)) +
   geom_dl(aes(label = name), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
 
-b <- df_aggregate %>%
+
+coord <- df_aggregate %>%  group_by(ID, yr, total_words, name) %>% summarise(TF = max(TF)) %>%
+  select(ID, yr, total_words, name, TF) %>% drop_na() %>%
+  pivot_wider(id_cols = c(yr,ID, total_words), names_from = name, values_from = TF) %>%
+  select(agency, access, sovereignty, justice, equity, global, climate,
+         farmer, stakeholder,smallholder) 
+
+cormat <-cor(coord)
+library(reshape2)
+melted_cormat <- melt(cormat) 
+
+b <- melted_cormat %>%
+  filter(!Var1 %in% c("ID","yr", "total_words")) %>%
+  filter(!Var2 %in% c("ID","yr", "total_words")) %>%
+  mutate(value = ifelse(value<1,value, NA)) %>%
+  rename(`co-occurance` = value) %>%
+  ggplot(aes(x=Var1, y=reorder(Var2, `co-occurance`), fill=`co-occurance`)) + 
+  geom_tile() + theme_classic() +
+  scale_fill_gradient(low = "#FFFFE0", high = "#8B0000", na.value = "grey") +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(angle = 90)) 
+
+
+c <- df_aggregate %>%
   filter(theme == c("methods")) %>%
   group_by(yr, name, theme) %>%
   summarise(count = sum(value),
@@ -273,7 +297,7 @@ b <- df_aggregate %>%
   labs(y = "term frequency (per 1000 words)") +
   expand_limits(x = c(1980, 2025)) +
   geom_dl(aes(label = name), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
-a+b + plot_annotation(tag_levels = 'A')
+a+b + plot_annotation(tag_levels = 'A') 
 ```
 # reports
 
@@ -438,11 +462,36 @@ a %>% left_join(b) %>%
                   ifelse(date == "rel_frequency_2010" & rel_frequency <=0, "b",
                      ifelse(date != "rel_frequency_2010" & rel_frequency >0, "c","d")))) %>%
   ggplot(aes(x=reorder(name,rel_frequency) , y = rel_frequency, fill = color)) + geom_col(position = "dodge", width = 0.7) +
-  theme_classic() + theme(legend.position = "none", legend.title = element_blank(), legend.text = element_text(size = 7))+      
+  theme_classic() + theme(legend.position = "bottom", legend.title = element_blank(), legend.text = element_text(size = 7))+      
   scale_fill_manual(values = c("lightblue", "pink", "darkblue", "darkred")) + 
   geom_hline(yintercept = 0, linetype = "dashed") +
   labs(y = "relative term frequency") +
   coord_flip()  + theme(axis.title.y = element_blank())
+```
+# co-occurance 
+
+
+```{r}
+coord <- df_aggregate %>%  group_by(ID, yr, total_words, name) %>% summarise(TF = max(TF)) %>%
+  select(ID, yr, total_words, name, TF) %>% drop_na() %>%
+  pivot_wider(id_cols = c(yr,ID, total_words), names_from = name, values_from = TF) %>%
+  select(agency, access, sovereignty, justice, equity, global, climate,
+         farmer, stakeholder,smallholder) 
+
+cormat <-cor(coord)
+library(reshape2)
+melted_cormat <- melt(cormat) 
+
+melted_cormat %>%
+  filter(!Var1 %in% c("ID","yr", "total_words")) %>%
+  filter(!Var2 %in% c("ID","yr", "total_words")) %>%
+  mutate(value = ifelse(value<1,value, NA)) %>%
+  ggplot(aes(x=Var1, y=reorder(Var2, value), fill=value)) + 
+  geom_tile() + theme_classic() +
+  scale_fill_gradient(low = "#FFFFE0", high = "#8B0000", na.value = "grey") +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank(),
+        axis.text.x = element_text(angle = 90))
 ```
 
 
