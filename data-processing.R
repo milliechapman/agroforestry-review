@@ -5,115 +5,7 @@ library(tidyjson)
 library(jsonlite)
 
 #These are search terms
-
-search <- c("agroforestry","Agroforestry",
-            
-            ### ---------- Centralized ---------------------------------------------------
-            
-            # International Agreements and Goals
-            "NDC", "NDCs", "IPCC", 
-            "agreements","agreement",
-            "climate", "carbon",
-            "SDGs", "SDG", 
-            "development","developed", "developing",
-            "mitigation", "sequestration",
-            "adaptation",
-            
-            # Policy and policy mechanisms
-            "market","markets",  
-            "economy", "economies",
-            "taxes",  
-            "subsidies", "subsidy",
-            "incentives","incentive",
-            "policy", "policies", "political",
-            "private",
-            "structural",
-            
-            # Large spatial scale
-            "global", "world", "international",
-            "state", "states",
-            "country","countries", "national", "nation",
-            "regional", "region",
-            "landscape","landscapes",
-
-            # Institutional arrangement
-            "government", "governments",
-            "institute", "institution", "institution", 
-            "centralized",
-            "infrastructure",
-            "polycentric",
-
-            
-            
-            # ---------- Decentralized ----------------------------------------------------
-            
-     
-            # Individual Level
-            "farmers", "farmer", 
-            "practitioner", "practitioners", 
-            "smallholder", "smallholders", 
-            "stakeholder", "stakeholders",
-            "individual", "individuals",
-            "producers", "producer",
-            "grower", "growers",
-            
-            
-            # Farm level
-            "farm", "farms",
-            "households", "household",
-            "practice", "practices", 
-            "labor",
-            "livelihood",
-            
-            # Power
-            "intersectionality", 
-            "race", 
-            "women", "gender",
-            "agency",
-            "access", "tenure",
-            "sovereignty", 
-            "justice",
-            "colonization",
-            "equity",
-            
-            # Community level            
-            "community", "communities", "communal",      
-            "rural", 
-            "social",
-            "network", 
-            "cooperative", 
-            "Local", "local",
-    
-            # Indigenous
-            "TEK", 
-            "indigenous", "native", "Indigenous",
-            "traditional",
-
-            # Culture and Perceptions
-            "culture", "cultural", "cultures", #cultures
-            "knowledge", "knowing", #knowledge
-            "perception", "perceptions", #perceptions
-            "Attitudes", "attitude", #attitudes
-
-
-    # ----------------- NEW ADDITIONS // CATEGORIES ------------
-
-            # Research Methods
-            "participatory",
-            "feminism", "feminist",
-            "interview", "interviews",
-            "colonial", "postcolonial",
-            "survey", 
-            "model", 
-            "SES",
-            
-            # Transitions
-            "adoption",  
-            "transition","transitions",
-            "transformation")
-            
-            
-            
+search <- read_csv("data/codebook_new.csv")$subterm
   
 n_articles <- 24669
 df <- data.frame(matrix(nrow = n_articles,ncol = (length(search)+3)))
@@ -126,8 +18,10 @@ nums <- c(1:1325, 1327:5855, 5857:7668,7701:8199, 8202:18377,
           18382:19851,19855:20388,
           20392:22553)
 
-#library(corpus)
-#z<-term_stats(lines[1:24669], drop = stopwords_en, drop_punct = TRUE)
+library(corpus)
+z<-term_stats(lines[1:24669], drop = stopwords_en, drop_punct = TRUE)
+write_csv(z, "data/output/all-words.csv")
+
 
 # search unigrams
 for (i in nums) {
@@ -151,7 +45,7 @@ for (i in nums) {
   }
 }
 
-write_csv(df, "data/output/search-descriptive.csv")
+write_csv(df, "data/output/search-descriptive2.csv")
 
 
 ## reports
@@ -190,7 +84,7 @@ for (i in nums) {
   }
 }
 
-write_csv(df, "data/output/search-descriptive-reports.csv")
+write_csv(df, "data/output/search-descriptive-reports2.csv")
 
 
 search <- c("climate mitigation", "carbon sequestration", "climate adaptiation")

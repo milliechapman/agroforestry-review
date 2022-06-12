@@ -18,421 +18,383 @@ library(patchwork)
 clean data frame
 
 ```{r}
-df <- read_csv("../data/output/search-descriptive.csv")
+df <- read_csv("../data/output/search-descriptive2.csv")
 
 df <- df %>%
   select(-c(title)) %>%
   mutate(ID = 1:nrow(df)) %>%
-  mutate(agroforestry = agroforestry + Agroforestry) %>%
-  filter(agroforestry>0) %>%
-  select(-Agroforestry)
-
+  filter(agroforestry>0) 
 ```
 
 
 ```{r}
-themes <- read_csv("../data/themes.csv") %>%
-  rename(name = term)
+themes <- read_csv("../data/codebook_new.csv")
 ```
 
 ```{r}
-# aggregate terms
 df_aggregate <- df %>%
   filter(agroforestry>quantile(df$agroforestry,0.25)) %>%
-  mutate(agroforestry = agroforestry) %>%
-  mutate(IPCC = NDC + NDCs + IPCC,  # 
-         agreement = agreements + agreement,
-         climate = climate + carbon,
-         SDG =  SDGs + SDG, 
-         development = development + developed + developing,
-         mitigation = mitigation + sequestration,
-         adaptation = adaptation) %>%
-  mutate(market = market + markets,  
-         economy = economy + economies,
-         taxes = taxes,
-         subsidies = subsidies + subsidy,
-         incentives = incentives + incentive,
-         policy = policy + policies + political,
-         private = private,
-         structure = structural) %>%
-  mutate(global = global + world + international, #global, state, country, regional, landscape
-         state = state + states,
-         country = country + countries + national + nation,
-         regional = regional + region,
-         landscape = landscape + landscapes) %>%
-  mutate(government = government + governments, #government, institute, centralized, infrastructure, polycentric
-         institute = institute, 
-        centralized = centralized,
-         infrastructure = infrastructure,
-        polycentric = polycentric ) %>%
-  mutate(farmer = farmers + farmer,  #farmer, practitioner, smallholder, stakeholder, individual, producers, growers,
-          practitioner = practitioner + practitioners, 
-          smallholder =  smallholder + smallholders, 
-          stakeholder = stakeholder + stakeholders,
-          individual =  individual + individuals,
-          producers = producers + producer,
-          growers = grower + growers,) %>%
-  mutate(farm = farm + farms, # farms, household, practice, labor, livelihood
-         household = households + household,
-         practice = practice + practices, 
-         labor = labor,
-         livelihood = livelihood) %>%
-  mutate(intersectionality = intersectionality, #intersectionality, race, gender, agency, access, sovereignty, justics, colonization, equity,
-         race = race,
-         gender = women + gender,
-         agency = agency,
-         access = access + tenure,
-         sovereignty = sovereignty,
-         justice = justice,
-         colonization = colonization,
-         equity = equity) %>%
-  mutate(community = community + communities + communal, #community, rural, social, network, cooperative, local
-         rural = rural,
-         social = social,
-         network = network,
-         cooperative = cooperative,
-         local = local) %>%
-  mutate(traditional = traditional, #traditional, TEK, Indigenous, native
-         TEK = TEK,
-        Indigenous = Indigenous +indigenous,
-        native = native) %>%
-  mutate(culture = culture+cultural+cultures,  #culture, knowledge, perceptions, attitude
-        knowledge = knowing + knowledge,
-        perceptions = perceptions + perception,
-        attitude = attitude) %>%
-  mutate(participatory = participatory, #participatory, feminist, interview, postcolonial, survey, model, SES
-        feminist = feminism+feminist,
-        interview = interview+interviews,
-        postcolonial = colonial +postcolonial,
-        survey = survey, 
-        model = model,
-        SES = SES) %>%
-  mutate(adoption = adoption, #adoption, transition, transformation
-        transition = transition + transitions,
-        transformation = transformation) %>%
-  select(yr, ID, total_words, agroforestry, 
-         climate, SDG, development, mitigation, adaptation,
-         market, economy, taxes, subsidies, incentives, policy, private, structure,
-         global, state, country, regional, landscape,
-         government, institute, infrastructure, polycentric,
-         farmer, practitioner, smallholder, stakeholder, individual, producers, growers,
-         farm, household, practice, labor, livelihood,
-         intersectionality, race, gender, agency, access, sovereignty, justice, colonization, equity,
-         community, rural, social, network, cooperative, local,
-         traditional, TEK, Indigenous, native,
-         culture, knowledge, perceptions, attitude,
-         participatory, feminist, interview, postcolonial, survey, model, SES,
-         adoption, transition, transformation) %>%
-  pivot_longer(-c(yr, total_words, ID, agroforestry)) %>%
-  mutate(TF = value/total_words,
-         agroforestry = agroforestry/total_words) %>%
-  left_join(themes)
+  pivot_longer(-c(yr, total_words)) %>%
+  rename(subterm = name) %>%
+  left_join(themes) %>%
+  group_by(yr, theme, subtheme, terms) %>%
+  summarize(total_words = sum(total_words),
+            value = sum(value)) %>% ungroup()
 ```
 
-```{r fig1, fig.height= 4, fig.width=8, dpi = 400}
+```{r}
 a <- df_aggregate %>%
-  filter(theme == "agreement") %>%
-  group_by(yr, name, theme) %>%
-  summarise(count = sum(value),
-            total_words = sum(total_words)) %>%
+  filter(theme == "Policy and agreements" & subtheme == "Agreement") %>%
+  group_by(yr, terms, subtheme, theme) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
   mutate(TF = count/total_words) %>%
-  filter(yr >1980 & yr<2021) %>% drop_na() %>%
-  group_by(name, theme) %>%
+  filter(yr >1980 & yr<2021) %>% #drop_na() %>%
+  group_by(terms, subtheme) %>%
   mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
+  #mutate(TF_03da = replace_na(TF_03da, 0)) %>%
   mutate(TF = ifelse(yr>2018,NA,TF)) %>%
-  ungroup() %>%
-  ggplot(aes(x = yr, y = TF_03da*1000, color = name)) +
+  ungroup() %>% 
+  ggplot(aes(x = yr, y = TF_03da*1000, color = terms)) +
   geom_line(lwd = 1.2) + 
   scale_colour_met_d("Degas") +
-  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = name)), color = "grey") +
+  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
   labs(y = "term frequency (per 1000 words)") +
   expand_limits(x = c(1980, 2025)) +
-  geom_dl(aes(label = name), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
-
+  geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
 b <- df_aggregate %>%
-  filter(theme == "agreement") %>%
-    mutate(TF = TF*1000) %>%
-  select(ID, name, TF) %>% pivot_wider(names_from = name, values_from = TF) %>% ggplot(aes(x = log(climate), y = log(development))) + geom_point(alpha = 0.5) +
-    scale_colour_met_d("Degas") + theme_classic()
-
-c<- df_aggregate %>%
-  filter(theme == "agreement") %>%
-    mutate(TF = TF*1000) %>%
-  select(ID, name, TF) %>% pivot_wider(names_from = name, values_from = TF) %>% ggplot(aes(x = log(climate), y = log(adaptation))) + geom_point(alpha = 0.5) +
-    scale_colour_met_d("Degas") + theme_classic()
-
-d <- df_aggregate %>%
-  filter(theme == "agreement") %>%
-    mutate(TF = TF*1000) %>%
-  select(ID, name, TF) %>% pivot_wider(names_from = name, values_from = TF) %>% ggplot(aes(x = log(climate), y = log(mitigation))) + geom_point(alpha = 0.5) +
-    scale_colour_met_d("Degas") + theme_classic()
-
-e <- df_aggregate %>%
-  filter(theme == "agreement") %>%
-  select(ID, name, TF) %>%
-  mutate(TF = TF*1000) %>%
-  pivot_wider(names_from = name, values_from = TF) %>% ggplot(aes(x = log(mitigation), y = log(adaptation))) + geom_point(alpha = 0.5) + theme_classic()
-
-f <- (b+c)/(d+e)+plot_annotation(tag_levels = c("A", "B", "C", "D")) 
-a +f + plot_annotation(tag_levels = c("A", "B", "C", "D")) 
-```
-
-
-```{r fig2, fig.height= 4, fig.width=8, dpi = 400}
-a <- df_aggregate %>%
-  filter(theme == c("scale")) %>%
-  group_by(yr, name, theme) %>%
-  summarise(count = sum(value),
-            total_words = sum(total_words)) %>%
+  filter(theme == "Policy and agreements" & subtheme == "Policy") %>%
+  group_by(yr, terms, subtheme, theme) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
   mutate(TF = count/total_words) %>%
-  filter(yr >1980 & yr<2021) %>% drop_na() %>%
-  group_by(name, theme) %>%
+  filter(yr >1980 & yr<2021) %>% #drop_na() %>%
+  group_by(terms, subtheme) %>%
   mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
+  #mutate(TF_03da = replace_na(TF_03da, 0)) %>%
   mutate(TF = ifelse(yr>2018,NA,TF)) %>%
-  ungroup() %>%
-  ggplot(aes(x = yr, y = TF_03da*1000, color = name)) +
+  ungroup() %>% 
+  ggplot(aes(x = yr, y = TF_03da*1000, color = terms)) +
   geom_line(lwd = 1.2) + 
   scale_colour_met_d("Degas") +
-  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = name)), color = "grey") +
+  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
   labs(y = "term frequency (per 1000 words)") +
   expand_limits(x = c(1980, 2025)) +
-  geom_dl(aes(label = name), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
+  geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))# + facet_grid(cols = vars(subtheme))
+```
 
+```{r figure2, fig.width=7.5, fig.height=3, dpi = 300}
+library(patchwork)
+a+b
+```
+```{r}
+df_aggregate %>%
+  filter(theme == "Scales and decision making agents")
+```
+
+```{r}
+a <- df_aggregate %>%
+  filter(theme == "Scales and decision making agents" & subtheme == "Community") %>%
+  group_by(yr, terms, subtheme, theme) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
+  mutate(TF = count/total_words) %>%
+  filter(yr >1980 & yr<2021) %>% #drop_na() %>%
+  group_by(terms, subtheme) %>%
+  mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
+  #mutate(TF_03da = replace_na(TF_03da, 0)) %>%
+  mutate(TF = ifelse(yr>2018,NA,TF)) %>%
+  ungroup() %>% 
+  ggplot(aes(x = yr, y = TF_03da*1000, color = terms)) +
+  geom_line(lwd = 1.2) + 
+  scale_colour_met_d("Degas") +
+  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
+  theme_classic() + 
+  theme(legend.position = "none",
+        axis.title.x = element_blank()) +
+  labs(y = "term frequency (per 1000 words)") +
+  expand_limits(x = c(1980, 2025)) +
+  geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
 b <- df_aggregate %>%
-  filter(theme == c("government", "individual")) %>%
-  group_by(yr, name, theme) %>%
-  summarise(count = sum(value),
-            total_words = sum(total_words)) %>%
+  filter(theme == "Scales and decision making agents" & subtheme == "Farm") %>%
+  group_by(yr, terms, subtheme, theme) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
   mutate(TF = count/total_words) %>%
-  filter(yr >1980 & yr<2021) %>% drop_na() %>%
-  group_by(name, theme) %>%
+  filter(yr >1980 & yr<2021) %>% #drop_na() %>%
+  group_by(terms, subtheme) %>%
   mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
+  #mutate(TF_03da = replace_na(TF_03da, 0)) %>%
   mutate(TF = ifelse(yr>2018,NA,TF)) %>%
-  ungroup() %>%
-  ggplot(aes(x = yr, y = TF_03da*1000, color = name)) +
+  ungroup() %>% 
+  ggplot(aes(x = yr, y = TF_03da*1000, color = terms)) +
   geom_line(lwd = 1.2) + 
   scale_colour_met_d("Degas") +
-  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = name)), color = "grey") +
+  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
   labs(y = "term frequency (per 1000 words)") +
   expand_limits(x = c(1980, 2025)) +
-  geom_dl(aes(label = name), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
-
-a+b + plot_annotation(tag_levels = 'A')
-```
-
-```{r fig3, fig.height= 4, fig.width=8, dpi = 400}
-a <- df_aggregate %>%
-  filter(theme == c("power")) %>%
-  group_by(yr, name, theme) %>%
-  summarise(count = sum(value),
-            total_words = sum(total_words)) %>%
-  mutate(TF = count/total_words) %>%
-  filter(yr >1980 & yr<2021) %>% drop_na() %>%
-  group_by(name, theme) %>%
-  mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
-  mutate(TF = ifelse(yr>2018,NA,TF)) %>%
-  ungroup() %>%
-  ggplot(aes(x = yr, y = TF_03da*1000, color = name)) +
-  geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
-  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = name)), color = "grey") +
-  theme_classic() + 
-  theme(legend.position = "none",
-        axis.title.x = element_blank()) +
-  labs(y = "term frequency (per 1000 words)") +
-  expand_limits(x = c(1980, 2025)) +
-  geom_dl(aes(label = name), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
-
-
-coord <- df_aggregate %>%  group_by(ID, yr, total_words, name) %>% summarise(TF = max(TF)) %>%
-  select(ID, yr, total_words, name, TF) %>% drop_na() %>%
-  pivot_wider(id_cols = c(yr,ID, total_words), names_from = name, values_from = TF) %>%
-  select(agency, access, sovereignty, justice, equity, global, climate,
-         farmer, stakeholder,smallholder) 
-
-cormat <-cor(coord)
-library(reshape2)
-melted_cormat <- melt(cormat) 
-
-b <- melted_cormat %>%
-  filter(!Var1 %in% c("ID","yr", "total_words")) %>%
-  filter(!Var2 %in% c("ID","yr", "total_words")) %>%
-  mutate(value = ifelse(value<1,value, NA)) %>%
-  rename(`co-occurance` = value) %>%
-  ggplot(aes(x=Var1, y=reorder(Var2, `co-occurance`), fill=`co-occurance`)) + 
-  geom_tile() + theme_classic() +
-  scale_fill_gradient(low = "#FFFFE0", high = "#8B0000", na.value = "grey") +
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        axis.text.x = element_text(angle = 90)) 
-
+  geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))# + facet_grid(cols = vars(subtheme))
 
 c <- df_aggregate %>%
-  filter(theme == c("methods")) %>%
-  group_by(yr, name, theme) %>%
-  summarise(count = sum(value),
-            total_words = sum(total_words)) %>%
+  filter(theme == "Scales and decision making agents" & subtheme == "Government") %>%
+  group_by(yr, terms, subtheme, theme) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
   mutate(TF = count/total_words) %>%
-  filter(yr >1980 & yr<2021) %>% drop_na() %>%
-  group_by(name, theme) %>%
+  filter(yr >1980 & yr<2021) %>% #drop_na() %>%
+  group_by(terms, subtheme) %>%
   mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
+  #mutate(TF_03da = replace_na(TF_03da, 0)) %>%
   mutate(TF = ifelse(yr>2018,NA,TF)) %>%
-  ungroup() %>%
-  ggplot(aes(x = yr, y = TF_03da*1000, color = name)) +
+  ungroup() %>% 
+  ggplot(aes(x = yr, y = TF_03da*1000, color = terms)) +
   geom_line(lwd = 1.2) + 
   scale_colour_met_d("Degas") +
-  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = name)), color = "grey") +
+  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
   labs(y = "term frequency (per 1000 words)") +
   expand_limits(x = c(1980, 2025)) +
-  geom_dl(aes(label = name), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
-a+b + plot_annotation(tag_levels = 'A') 
+  geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
+d <- df_aggregate %>%
+  filter(theme == "Scales and decision making agents" & subtheme == "Scale") %>%
+  group_by(yr, terms, subtheme, theme) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
+  mutate(TF = count/total_words) %>%
+  filter(yr >1980 & yr<2021) %>% #drop_na() %>%
+  group_by(terms, subtheme) %>%
+  mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
+  #mutate(TF_03da = replace_na(TF_03da, 0)) %>%
+  mutate(TF = ifelse(yr>2018,NA,TF)) %>%
+  ungroup() %>% 
+  ggplot(aes(x = yr, y = TF_03da*1000, color = terms)) +
+  geom_line(lwd = 1.2) + 
+  scale_colour_met_d("Degas") +
+  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
+  theme_classic() + 
+  theme(legend.position = "none",
+        axis.title.x = element_blank()) +
+  labs(y = "term frequency (per 1000 words)") +
+  expand_limits(x = c(1980, 2025)) +
+  geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
+
 ```
+
+```{r figure3, fig.width=7.5, fig.height=6, dpi = 300}
+library(patchwork)
+(c+a)/(b+d)
+```
+
+
+
+
+
+
+```{r}
+a <- df_aggregate %>%
+  filter(theme == "Culture, knowledge, and equity" & subtheme == "Culture and Perceptions") %>%
+  group_by(yr, terms, subtheme, theme) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
+  mutate(TF = count/total_words) %>%
+  filter(yr >1980 & yr<2021) %>% #drop_na() %>%
+  group_by(terms, subtheme) %>%
+  mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
+  #mutate(TF_03da = replace_na(TF_03da, 0)) %>%
+  mutate(TF = ifelse(yr>2018,NA,TF)) %>%
+  ungroup() %>% 
+  ggplot(aes(x = yr, y = TF_03da*1000, color = terms)) +
+  geom_line(lwd = 1.2) + 
+  scale_colour_met_d("Degas") +
+  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
+  theme_classic() + 
+  theme(legend.position = "none",
+        axis.title.x = element_blank()) +
+  labs(y = "term frequency (per 1000 words)") +
+  expand_limits(x = c(1980, 2025)) +
+  geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
+b <- df_aggregate %>%
+  filter(theme == "Culture, knowledge, and equity" & subtheme == "Indigenous") %>%
+  group_by(yr, terms, subtheme, theme) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
+  mutate(TF = count/total_words) %>%
+  filter(yr >1980 & yr<2021) %>% #drop_na() %>%
+  group_by(terms, subtheme) %>%
+  mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
+  #mutate(TF_03da = replace_na(TF_03da, 0)) %>%
+  mutate(TF = ifelse(yr>2018,NA,TF)) %>%
+  ungroup() %>% 
+  ggplot(aes(x = yr, y = TF_03da*1000, color = terms)) +
+  geom_line(lwd = 1.2) + 
+  scale_colour_met_d("Degas") +
+  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
+  theme_classic() + 
+  theme(legend.position = "none",
+        axis.title.x = element_blank()) +
+  labs(y = "term frequency (per 1000 words)") +
+  expand_limits(x = c(1980, 2025)) +
+  geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))# + facet_grid(cols = vars(subtheme))
+
+c <- df_aggregate %>%
+  filter(theme == "Culture, knowledge, and equity" & subtheme == "Power") %>%
+  group_by(yr, terms, subtheme, theme) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
+  mutate(TF = count/total_words) %>%
+  filter(yr >1980 & yr<2021) %>% #drop_na() %>%
+  group_by(terms, subtheme) %>%
+  mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
+  #mutate(TF_03da = replace_na(TF_03da, 0)) %>%
+  mutate(TF = ifelse(yr>2018,NA,TF)) %>%
+  ungroup() %>% 
+  ggplot(aes(x = yr, y = TF_03da*1000, color = terms)) +
+  geom_line(lwd = 1.2) + 
+  scale_colour_met_d("Degas") +
+  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
+  theme_classic() + 
+  theme(legend.position = "none",
+        axis.title.x = element_blank()) +
+  labs(y = "term frequency (per 1000 words)") +
+  expand_limits(x = c(1980, 2025)) +
+  geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
+```
+
+
+```{r figure4, fig.width=7.5, fig.height=3, dpi = 300}
+library(patchwork)
+(a+b+c)
+```
+
+```{r}
+a <- df_aggregate %>%
+  filter(theme == "Approaches and perspectives" & subtheme == "Perspectives") %>%
+  group_by(yr, terms, subtheme, theme) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
+  mutate(TF = count/total_words) %>%
+  filter(yr >1980 & yr<2021) %>% #drop_na() %>%
+  group_by(terms, subtheme) %>%
+  mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
+  #mutate(TF_03da = replace_na(TF_03da, 0)) %>%
+  mutate(TF = ifelse(yr>2018,NA,TF)) %>%
+  ungroup() %>% 
+  ggplot(aes(x = yr, y = TF_03da*1000, color = terms)) +
+  geom_line(lwd = 1.2) + 
+  scale_colour_met_d("Degas") +
+  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
+  theme_classic() + 
+  theme(legend.position = "none",
+        axis.title.x = element_blank()) +
+  labs(y = "term frequency (per 1000 words)") +
+  expand_limits(x = c(1980, 2025)) +
+  geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
+b <- df_aggregate %>%
+  filter(theme == "Approaches and perspectives" & subtheme == "Framework") %>%
+  group_by(yr, terms, subtheme, theme) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
+  mutate(TF = count/total_words) %>%
+  filter(yr >1980 & yr<2021) %>% #drop_na() %>%
+  group_by(terms, subtheme) %>%
+  mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
+  #mutate(TF_03da = replace_na(TF_03da, 0)) %>%
+  mutate(TF = ifelse(yr>2018,NA,TF)) %>%
+  ungroup() %>% 
+  ggplot(aes(x = yr, y = TF_03da*1000, color = terms)) +
+  geom_line(lwd = 1.2) + 
+  scale_colour_met_d("Degas") +
+  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
+  theme_classic() + 
+  theme(legend.position = "none",
+        axis.title.x = element_blank()) +
+  labs(y = "term frequency (per 1000 words)") +
+  expand_limits(x = c(1980, 2025)) +
+  geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))# + facet_grid(cols = vars(subtheme))
+
+c <- df_aggregate %>%
+  filter(theme == "Approaches and perspectives" & subtheme == "Methods") %>%
+  group_by(yr, terms, subtheme, theme) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
+  mutate(TF = count/total_words) %>%
+  filter(yr >1980 & yr<2021) %>% #drop_na() %>%
+  group_by(terms, subtheme) %>%
+  mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
+  #mutate(TF_03da = replace_na(TF_03da, 0)) %>%
+  mutate(TF = ifelse(yr>2018,NA,TF)) %>%
+  ungroup() %>% 
+  ggplot(aes(x = yr, y = TF_03da*1000, color = terms)) +
+  geom_line(lwd = 1.2) + 
+  scale_colour_met_d("Degas") +
+  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
+  theme_classic() + 
+  theme(legend.position = "none",
+        axis.title.x = element_blank()) +
+  labs(y = "term frequency (per 1000 words)") +
+  expand_limits(x = c(1980, 2025)) +
+  geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
+```
+
+
+```{r figure5, fig.width=7.5, fig.height=3, dpi = 300}
+library(patchwork)
+(a+b+c)
+```
+
 # reports
 
 clean data frame
 
 ```{r}
-df <- read_csv("../data/output/search-descriptive-reports.csv")
+df <- read_csv("../data/output/search-descriptive-reports2.csv")
 
 df <- df %>%
   select(-c(title)) %>%
   mutate(ID = 1:nrow(df)) %>%
-  mutate(agroforestry = agroforestry + Agroforestry) %>%
-  filter(agroforestry>0) %>%
-  select(-Agroforestry)
+  filter(agroforestry>0)
 
-# aggregate terms
 df_aggregate_reports <- df %>%
   filter(agroforestry>quantile(df$agroforestry,0.25)) %>%
-  mutate(agroforestry = agroforestry) %>%
-  mutate(IPCC = NDC + NDCs + IPCC,  # 
-         agreement = agreements + agreement,
-         climate = climate + carbon,
-         SDG =  SDGs + SDG, 
-         development = development + developed + developing,
-          mitigation = mitigation + sequestration,
-         adaptation = adaptation) %>%
-  mutate(market = market + markets,  
-         economy = economy + economies,
-         taxes = taxes,
-         subsidies = subsidies + subsidy,
-         incentives = incentives + incentive,
-         policy = policy + policies + political,
-         private = private,
-         structure = structural) %>%
-  mutate(global = global + world + international, #global, state, country, regional, landscape
-         state = state + states,
-         country = country + countries + national + nation,
-         regional = regional + region,
-         landscape = landscape + landscapes) %>%
-  mutate(government = government + governments, #government, institute, centralized, infrastructure, polycentric
-         institute = institute, 
-        centralized = centralized,
-         infrastructure = infrastructure,
-        polycentric = polycentric ) %>%
-  mutate(farmer = farmers + farmer,  #farmer, practitioner, smallholder, stakeholder, individual, producers, growers,
-          practitioner = practitioner + practitioners, 
-          smallholder =  smallholder + smallholders, 
-          stakeholder = stakeholder + stakeholders,
-          individual =  individual + individuals,
-          producers = producers + producer,
-          growers = grower + growers,) %>%
-  mutate(farm = farm + farms, # farms, household, practice, labor, livelihood
-         household = households + household,
-         practice = practice + practices, 
-         labor = labor,
-         livelihood = livelihood) %>%
-  mutate(intersectionality = intersectionality, #intersectionality, race, gender, agency, access, sovereignty, justics, colonization, equity,
-         race = race,
-         gender = women + gender,
-         agency = agency,
-         access = access + tenure,
-         sovereignty = sovereignty,
-         justice = justice,
-         colonization = colonization,
-         equity = equity) %>%
-  mutate(community = community + communities + communal, #community, rural, social, network, cooperative, local
-         rural = rural,
-         social = social,
-         network = network,
-         cooperative = cooperative,
-         local = local) %>%
-  mutate(traditional = traditional, #traditional, TEK, Indigenous, native
-         TEK = TEK,
-        Indigenous = Indigenous +indigenous,
-        native = native) %>%
-  mutate(culture = culture+cultural+cultures,  #culture, knowledge, perceptions, attitude
-        knowledge = knowing + knowledge,
-        perceptions = perceptions + perception,
-        attitude = attitude) %>%
-  mutate(participatory = participatory, #participatory, feminist, interview, postcolonial, survey, model, SES
-        feminist = feminism+feminist,
-        interview = interview+interviews,
-        postcolonial = colonial +postcolonial,
-        survey = survey, 
-        model = model,
-        SES = SES) %>%
-  mutate(adoption = adoption, #adoption, transition, transformation
-        transition = transition + transitions,
-        transformation = transformation) %>%
-  select(yr, ID, total_words, agroforestry, 
-         #IPCC, agreement, 
-         climate, #SDG, development, 
-         mitigation, adaptation,
-         #market, economy, #taxes, subsidies, incentives, 
-         policy,# private, structure,
-         global, state, country, regional,# landscape,
-         #government,# institute, #centralized, infrastructure, polycentric,
-         farmer, #practitioner, smallholder, stakeholder, individual, producers, growers,
-         farm, household, #practice, 
-         labor, livelihood,
-         intersectionality, race, gender, agency, access, #sovereignty, justice, colonization,
-         equity,
-         community, rural, social, #network, cooperative, #local,
-         #traditional, TEK, Indigenous, native,
-         culture, knowledge, perceptions, attitude,
-         participatory, feminist, interview, postcolonial, survey, model, SES,
-         #adoption, transition 
-         #transformation
-         ) %>%
-  pivot_longer(-c(yr, total_words, ID, agroforestry)) %>%
-  mutate(TF = value/total_words,
-         agroforestry = agroforestry/total_words) %>%
-  left_join(themes)
+  pivot_longer(-c(yr, total_words)) %>%
+  rename(subterm = name) %>%
+  left_join(themes) %>%
+  group_by(yr, theme, subtheme, terms) %>%
+  summarize(total_words = sum(total_words),
+            value = sum(value)) %>% ungroup()
 ```
 
 ```{r fig4, fig.height=7, fig.width=5, dpi=400}
 df_aggregate_f4 <- df_aggregate %>%
-  group_by(yr, name, theme) %>%
+  group_by(yr, terms, theme) %>%
   summarise(count = sum(value),
             total_words = sum(total_words)) %>%
   mutate(TF_academic = count/total_words*1000) %>%
-  select(yr, name, theme, TF_academic) %>%
+  select(yr, terms, theme, TF_academic) %>%
   filter(yr >1980 & yr<2021)
 
 
 a <- df_aggregate_reports %>%
-  group_by(yr, name, theme) %>%
+  group_by(yr, terms, theme) %>%
   summarise(count = sum(value),
             total_words = sum(total_words)) %>%
   mutate(TF_reports = count/total_words*1000) %>%
-  filter(yr >1980 & yr<2021) %>% select(yr, name, theme, TF_reports) %>%
+  filter(yr >1980 & yr<2021) %>% select(yr, terms, theme, TF_reports) %>%
   left_join(df_aggregate_f4) %>% 
   mutate_all(~replace(., . == 0, NA)) %>%
   mutate(rel_frequency = (TF_reports-TF_academic)/TF_reports) %>%
-  group_by(name, theme) %>% 
+  group_by(terms, theme) %>% 
   summarise(rel_frequency = mean(rel_frequency, na.rm = TRUE)) %>% 
   drop_na() 
 ```
@@ -440,58 +402,34 @@ a <- df_aggregate_reports %>%
 
 ```{r fig4b, fig.height=7, fig.width=4, dpi=400}
 b <- df_aggregate_reports %>%
-  group_by(yr, name, theme) %>%
+  group_by(yr, terms, theme) %>%
   summarise(count = sum(value),
             total_words = sum(total_words)) %>%
   mutate(TF_reports = count/total_words*1000) %>%
-  filter(yr >1980 & yr<2021) %>% select(yr, name, theme, TF_reports) %>%
+  filter(yr >1980 & yr<2021) %>% select(yr, terms, theme, TF_reports) %>%
   left_join(df_aggregate_f4) %>% 
   filter(yr >2010) %>%
   mutate_all(~replace(., . == 0, NA)) %>%
   mutate(rel_frequency = (TF_reports-TF_academic)/TF_reports) %>%
-  group_by(name, theme) %>% 
+  group_by(terms, theme) %>% 
   summarise(rel_frequency_2010 = mean(rel_frequency, na.rm = TRUE)) %>% 
   drop_na()
 
 
 a %>% left_join(b) %>% 
   select(-theme) %>% drop_na() %>%
-  pivot_longer(!name, names_to = "date", values_to = "rel_frequency") %>%
+  pivot_longer(!terms, names_to = "date", values_to = "rel_frequency") %>%
   mutate(color = 
            ifelse(date == "rel_frequency_2010" & rel_frequency >0, "a",
                   ifelse(date == "rel_frequency_2010" & rel_frequency <=0, "b",
                      ifelse(date != "rel_frequency_2010" & rel_frequency >0, "c","d")))) %>%
-  ggplot(aes(x=reorder(name,rel_frequency) , y = rel_frequency, fill = color)) + geom_col(position = "dodge", width = 0.7) +
+  ggplot(aes(x=reorder(terms,rel_frequency) , y = rel_frequency, fill = color)) + geom_col(position = "dodge", width = 0.7) +
   theme_classic() + theme(legend.position = "bottom", legend.title = element_blank(), legend.text = element_text(size = 7))+      
   scale_fill_manual(values = c("lightblue", "pink", "darkblue", "darkred")) + 
   geom_hline(yintercept = 0, linetype = "dashed") +
   labs(y = "relative term frequency") +
   coord_flip()  + theme(axis.title.y = element_blank())
 ```
-# co-occurance 
 
-
-```{r}
-coord <- df_aggregate %>%  group_by(ID, yr, total_words, name) %>% summarise(TF = max(TF)) %>%
-  select(ID, yr, total_words, name, TF) %>% drop_na() %>%
-  pivot_wider(id_cols = c(yr,ID, total_words), names_from = name, values_from = TF) %>%
-  select(agency, access, sovereignty, justice, equity, global, climate,
-         farmer, stakeholder,smallholder) 
-
-cormat <-cor(coord)
-library(reshape2)
-melted_cormat <- melt(cormat) 
-
-melted_cormat %>%
-  filter(!Var1 %in% c("ID","yr", "total_words")) %>%
-  filter(!Var2 %in% c("ID","yr", "total_words")) %>%
-  mutate(value = ifelse(value<1,value, NA)) %>%
-  ggplot(aes(x=Var1, y=reorder(Var2, value), fill=value)) + 
-  geom_tile() + theme_classic() +
-  scale_fill_gradient(low = "#FFFFE0", high = "#8B0000", na.value = "grey") +
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_blank(),
-        axis.text.x = element_text(angle = 90))
-```
 
 
