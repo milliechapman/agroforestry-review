@@ -91,7 +91,7 @@ b <- df_aggregate %>%
 
 ```{r figure2, fig.width=7.5, fig.height=3, dpi = 300}
 library(patchwork)
-a+b
+a+b+plot_annotation(tag_levels = 'A')
 ```
 ```{r}
 df_aggregate %>%
@@ -193,7 +193,7 @@ d <- df_aggregate %>%
 
 ```{r figure3, fig.width=7.5, fig.height=6, dpi = 300}
 library(patchwork)
-(c+a)/(b+d)
+(c+a)/(b+d) + plot_annotation(tag_levels = 'A')
 ```
 
 
@@ -272,9 +272,9 @@ c <- df_aggregate %>%
 ```
 
 
-```{r figure4, fig.width=7.5, fig.height=3, dpi = 300}
+```{r figure4, fig.width=7.5, fig.height=6, dpi = 300}
 library(patchwork)
-(a+b+c)
+(a+b+c) + plot_annotation(tag_levels = 'A') + plot_layout(nrow = 2, ncol = 2,  byrow = FALSE)
 ```
 
 ```{r}
@@ -348,9 +348,9 @@ c <- df_aggregate %>%
 ```
 
 
-```{r figure5, fig.width=7.5, fig.height=3, dpi = 300}
+```{r figure5, fig.width=7.5, fig.height=6, dpi = 300}
 library(patchwork)
-(a+b+c)
+(a+b+c) + plot_annotation(tag_levels = 'A')+  plot_layout(ncol = 2, byrow = FALSE)
 ```
 
 # reports
@@ -400,7 +400,7 @@ a <- df_aggregate_reports %>%
 ```
 
 
-```{r fig4b, fig.height=7, fig.width=4, dpi=400}
+```{r fig5b, fig.height=7, fig.width=4, dpi=400}
 b <- df_aggregate_reports %>%
   group_by(yr, terms, theme) %>%
   summarise(count = sum(value),
@@ -426,6 +426,83 @@ a %>% left_join(b) %>%
   ggplot(aes(x=reorder(terms,rel_frequency) , y = rel_frequency, fill = color)) + geom_col(position = "dodge", width = 0.7) +
   theme_classic() + theme(legend.position = "bottom", legend.title = element_blank(), legend.text = element_text(size = 7))+      
   scale_fill_manual(values = c("lightblue", "pink", "darkblue", "darkred")) + 
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(y = "relative term frequency") +
+  coord_flip()  + theme(axis.title.y = element_blank())
+```
+
+
+
+clean data frame
+
+```{r}
+df <- read_csv("../data/output/search-descriptive-reports2.csv")
+
+df <- df %>%
+  select(-c(title)) %>%
+  mutate(ID = 1:nrow(df)) %>%
+  filter(agroforestry>0)
+
+df_aggregate_reports <- df %>%
+  filter(agroforestry>quantile(df$agroforestry,0.25)) %>%
+  pivot_longer(-c(yr, total_words)) %>%
+  rename(subterm = name) %>%
+  left_join(themes) %>%
+  group_by(yr, theme) %>%
+  summarize(total_words = sum(total_words),
+            value = sum(value)) %>% ungroup()
+```
+
+```{r}
+df_aggregate_f4 <- df_aggregate %>%
+  group_by(yr, theme) %>%
+  summarise(count = sum(value),
+            total_words = sum(total_words)) %>%
+  mutate(TF_academic = count/total_words*1000) %>%
+  select(yr, theme, TF_academic) %>%
+  filter(yr >1980 & yr<2021)
+
+
+a <- df_aggregate_reports %>%
+  group_by(yr, theme) %>%
+  summarise(count = sum(value),
+            total_words = sum(total_words)) %>%
+  mutate(TF_reports = count/total_words*1000) %>%
+  filter(yr >1980 & yr<2021) %>% select(yr, theme, TF_reports) %>%
+  left_join(df_aggregate_f4) %>% 
+  mutate_all(~replace(., . == 0, NA)) %>%
+  mutate(rel_frequency = (TF_reports-TF_academic)/TF_reports) %>%
+  group_by(theme) %>% 
+  summarise(rel_frequency = mean(rel_frequency, na.rm = TRUE)) %>% 
+  drop_na() 
+```
+
+
+```{r fig6, fig.height=4, fig.width=4, dpi=400}
+b <- df_aggregate_reports %>%
+  group_by(yr, theme) %>%
+  summarise(count = sum(value),
+            total_words = sum(total_words)) %>%
+  mutate(TF_reports = count/total_words*1000) %>%
+  filter(yr >1980 & yr<2021) %>% select(yr,  theme, TF_reports) %>%
+  left_join(df_aggregate_f4) %>% 
+  filter(yr >2010) %>%
+  mutate_all(~replace(., . == 0, NA)) %>%
+  mutate(rel_frequency = (TF_reports-TF_academic)/TF_reports) %>%
+  group_by(theme) %>% 
+  summarise(rel_frequency_2010 = mean(rel_frequency, na.rm = TRUE)) %>% 
+  drop_na()
+
+
+a %>% left_join(b) %>% drop_na() %>%
+  pivot_longer(!theme, names_to = "date", values_to = "rel_frequency") %>%
+  mutate(color = 
+           ifelse(date == "rel_frequency_2010" & rel_frequency >0, "More common in reports (2010 onwards)",
+                  ifelse(date == "rel_frequency_2010" & rel_frequency <=0, "More common in academic (2010 onwards)",
+                     ifelse(date != "rel_frequency_2010" & rel_frequency >0, "More common in reports overall","More common in academic")))) %>%
+  ggplot(aes(x=reorder(theme,rel_frequency) , y = rel_frequency, fill = color)) + geom_col(position = "dodge", width = 0.7) +
+  theme_classic() + theme(legend.position = "none", legend.title = element_blank(), legend.text = element_text(size = 7))+      
+  #scale_fill_manual(values = c("#a2d9ce ","#0e6251",  "#78281f", "#f1948a")) + 
   geom_hline(yintercept = 0, linetype = "dashed") +
   labs(y = "relative term frequency") +
   coord_flip()  + theme(axis.title.y = element_blank())

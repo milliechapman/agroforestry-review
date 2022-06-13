@@ -152,7 +152,7 @@ b <- df_aggregate %>%
 
 ``` r
 library(patchwork)
-a+b
+a+b+plot_annotation(tag_levels = 'A')
 ```
 
     ## Warning: Removed 28 row(s) containing missing values (geom_path).
@@ -299,7 +299,7 @@ d <- df_aggregate %>%
 
 ``` r
 library(patchwork)
-(c+a)/(b+d)
+(c+a)/(b+d) + plot_annotation(tag_levels = 'A')
 ```
 
     ## Warning: Removed 20 row(s) containing missing values (geom_path).
@@ -406,7 +406,7 @@ c <- df_aggregate %>%
 
 ``` r
 library(patchwork)
-(a+b+c)
+(a+b+c) + plot_annotation(tag_levels = 'A') + plot_layout(nrow = 2, ncol = 2,  byrow = FALSE)
 ```
 
     ## Warning: Removed 20 row(s) containing missing values (geom_path).
@@ -509,7 +509,7 @@ c <- df_aggregate %>%
 
 ``` r
 library(patchwork)
-(a+b+c)
+(a+b+c) + plot_annotation(tag_levels = 'A')+  plot_layout(ncol = 2, byrow = FALSE)
 ```
 
     ## Warning: Removed 12 row(s) containing missing values (geom_path).
@@ -647,4 +647,120 @@ a %>% left_join(b) %>%
 
     ## Joining, by = c("terms", "theme")
 
-![](analysis_files/figure-gfm/fig4b-1.png)<!-- -->
+![](analysis_files/figure-gfm/fig5b-1.png)<!-- -->
+
+clean data frame
+
+``` r
+df <- read_csv("../data/output/search-descriptive-reports2.csv")
+```
+
+    ## New names:
+    ## Rows: 647 Columns: 267
+    ## ── Column specification
+    ## ──────────────────────────────────────────────────────── Delimiter: "," dbl
+    ## (266): yr, total_words, NDC, NDCs, IPCC, agreements, agreement, climate,... lgl
+    ## (1): title
+    ## ℹ Use `spec()` to retrieve the full column specification for this data. ℹ
+    ## Specify the column types or set `show_col_types = FALSE` to quiet this message.
+    ## • `state` -> `state...55`
+    ## • `state` -> `state...56`
+    ## • `regional` -> `regional...62`
+    ## • `regional` -> `regional...63`
+    ## • `colonial` -> `colonial...148`
+    ## • `colonial` -> `colonial...182`
+    ## • `intercropping` -> `intercropping...236`
+    ## • `intercropping` -> `intercropping...237`
+
+``` r
+df <- df %>%
+  select(-c(title)) %>%
+  mutate(ID = 1:nrow(df)) %>%
+  filter(agroforestry>0)
+
+df_aggregate_reports <- df %>%
+  filter(agroforestry>quantile(df$agroforestry,0.25)) %>%
+  pivot_longer(-c(yr, total_words)) %>%
+  rename(subterm = name) %>%
+  left_join(themes) %>%
+  group_by(yr, theme) %>%
+  summarize(total_words = sum(total_words),
+            value = sum(value)) %>% ungroup()
+```
+
+    ## Joining, by = "subterm"
+    ## `summarise()` has grouped output by 'yr'. You can override using the `.groups`
+    ## argument.
+
+``` r
+df_aggregate_f4 <- df_aggregate %>%
+  group_by(yr, theme) %>%
+  summarise(count = sum(value),
+            total_words = sum(total_words)) %>%
+  mutate(TF_academic = count/total_words*1000) %>%
+  select(yr, theme, TF_academic) %>%
+  filter(yr >1980 & yr<2021)
+```
+
+    ## `summarise()` has grouped output by 'yr'. You can override using the `.groups`
+    ## argument.
+
+``` r
+a <- df_aggregate_reports %>%
+  group_by(yr, theme) %>%
+  summarise(count = sum(value),
+            total_words = sum(total_words)) %>%
+  mutate(TF_reports = count/total_words*1000) %>%
+  filter(yr >1980 & yr<2021) %>% select(yr, theme, TF_reports) %>%
+  left_join(df_aggregate_f4) %>% 
+  mutate_all(~replace(., . == 0, NA)) %>%
+  mutate(rel_frequency = (TF_reports-TF_academic)/TF_reports) %>%
+  group_by(theme) %>% 
+  summarise(rel_frequency = mean(rel_frequency, na.rm = TRUE)) %>% 
+  drop_na() 
+```
+
+    ## `summarise()` has grouped output by 'yr'. You can override using the `.groups`
+    ## argument.
+    ## Joining, by = c("yr", "theme")
+    ## `mutate_all()` ignored the following grouping variables:
+
+``` r
+b <- df_aggregate_reports %>%
+  group_by(yr, theme) %>%
+  summarise(count = sum(value),
+            total_words = sum(total_words)) %>%
+  mutate(TF_reports = count/total_words*1000) %>%
+  filter(yr >1980 & yr<2021) %>% select(yr,  theme, TF_reports) %>%
+  left_join(df_aggregate_f4) %>% 
+  filter(yr >2010) %>%
+  mutate_all(~replace(., . == 0, NA)) %>%
+  mutate(rel_frequency = (TF_reports-TF_academic)/TF_reports) %>%
+  group_by(theme) %>% 
+  summarise(rel_frequency_2010 = mean(rel_frequency, na.rm = TRUE)) %>% 
+  drop_na()
+```
+
+    ## `summarise()` has grouped output by 'yr'. You can override using the `.groups`
+    ## argument.
+    ## Joining, by = c("yr", "theme")
+    ## `mutate_all()` ignored the following grouping variables:
+
+``` r
+a %>% left_join(b) %>% drop_na() %>%
+  pivot_longer(!theme, names_to = "date", values_to = "rel_frequency") %>%
+  mutate(color = 
+           ifelse(date == "rel_frequency_2010" & rel_frequency >0, "More common in reports (2010 onwards)",
+                  ifelse(date == "rel_frequency_2010" & rel_frequency <=0, "More common in academic (2010 onwards)",
+                     ifelse(date != "rel_frequency_2010" & rel_frequency >0, "More common in reports overall","More common in academic")))) %>%
+  ggplot(aes(x=reorder(theme,rel_frequency) , y = rel_frequency, fill = color)) + geom_col(position = "dodge", width = 0.7) +
+  theme_classic() + theme(legend.position = "none", legend.title = element_blank(), legend.text = element_text(size = 7))+      
+  #scale_fill_manual(values = c("#a2d9ce ","#0e6251",  "#78281f", "#f1948a")) + 
+  geom_hline(yintercept = 0, linetype = "dashed") +
+  labs(y = "relative term frequency") +
+  coord_flip()  + theme(axis.title.y = element_blank())
+```
+
+    ## Joining, by = "theme"
+
+![](analysis_files/figure-gfm/fig6-1.png)<!-- -->
