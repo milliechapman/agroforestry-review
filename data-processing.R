@@ -3,7 +3,8 @@ library(rjson)
 library(tidyverse)
 library(tidyjson)
 library(jsonlite)
-
+library(corpus)
+library(data.table)
 #These are search terms
 search <- read_csv("data/codebook_new.csv")$subterm
   
@@ -18,10 +19,51 @@ nums <- c(1:1325, 1327:5855, 5857:7668,7701:8199, 8202:18377,
           18382:19851,19855:20388,
           20392:22553)
 
-library(corpus)
-z<-term_stats(lines[1:24669], drop = stopwords_en, drop_punct = TRUE)
-write_csv(z, "data/output/all-words.csv")
+#z<-term_stats(lines[1:24669], drop = stopwords_en, drop_punct = TRUE)
+#write_csv(z, "data/output/all-words.csv")
 
+list_termstats <- list()
+list_termyrs <- list()
+list_termcounts <- list()
+
+# search unigrams
+for (i in nums) {
+  s <- lapply(lines[i], fromJSON)
+  #list_termyrs[i] <- unlist(s[[1]]$publicationYear)[1]
+  #list_termstats[[i]] <-term_stats(s[1], drop = stopwords_en, drop_punct = TRUE)
+  grams <- as.data.frame(unlist(s[[1]]$unigramCount))
+  list_termcounts[i] <- length(grams$`unlist(s[[1]]$unigramCount)`)
+}
+
+write_rds(list_termyrs, "list_termyrs.rds")
+write_rds(list_termstats, "list_termstats.rds")
+write_rds(list_termcounts, "list_termcounts.rds")
+
+yrs <- readRDS("list_termyrs.rds")
+for (i in nums) {
+  #list_termyrs[i]$ID <- i
+  #list_termstats[[i]]$ID <-i
+  list_termcounts[i]$ID<-i
+}
+
+termyrs <- unlist(yrs[nums])
+termyrs <- as.data.frame(termyrs)
+
+termcounts <- unlist(list_termcounts[nums])
+termcounts2 <- as.data.frame(termcounts)
+
+termyrs <- termyrs |>
+  mutate(ID = 1:length(nums))
+
+termcounts2 <- termcounts2 |>
+  mutate(ID = 1:length(nums))
+
+termyrs$ID <- seq(1,length(termyrs))
+
+termstats <- rbindlist(list_termstats[nums])
+write_csv(termstats, "termstats.csv")
+write_csv(termyrs, "termyrs.csv")
+write_csv(termcounts2, "termcounts.csv")
 
 # search unigrams
 for (i in nums) {
