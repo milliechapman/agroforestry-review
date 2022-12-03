@@ -7,13 +7,11 @@ Analyzing n-grams!
 library(tidyverse)
 ```
 
-    ## ── Attaching packages ─────────────────────────────────────── tidyverse 1.3.1 ──
-
+    ## ── Attaching packages ─────────────────────────────────────── tidyverse 1.3.2 ──
     ## ✔ ggplot2 3.3.6     ✔ purrr   0.3.4
-    ## ✔ tibble  3.1.7     ✔ dplyr   1.0.9
+    ## ✔ tibble  3.1.8     ✔ dplyr   1.0.9
     ## ✔ tidyr   1.2.0     ✔ stringr 1.4.0
     ## ✔ readr   2.1.2     ✔ forcats 0.5.1
-
     ## ── Conflicts ────────────────────────────────────────── tidyverse_conflicts() ──
     ## ✖ dplyr::filter() masks stats::filter()
     ## ✖ dplyr::lag()    masks stats::lag()
@@ -27,7 +25,7 @@ library(zoo)
 
     ## 
     ## Attaching package: 'zoo'
-
+    ## 
     ## The following objects are masked from 'package:base':
     ## 
     ##     as.Date, as.Date.numeric
@@ -35,7 +33,17 @@ library(zoo)
 ``` r
 library(MetBrewer)
 library(patchwork)
+library(ggbreak) 
 ```
+
+    ## ggbreak v0.1.1
+    ## 
+    ## If you use ggbreak in published research, please cite the following
+    ## paper:
+    ## 
+    ## S Xu, M Chen, T Feng, L Zhan, L Zhou, G Yu. Use ggbreak to effectively
+    ## utilize plotting space to deal with large datasets and outliers.
+    ## Frontiers in Genetics. 2021, 12:774846. doi: 10.3389/fgene.2021.774846
 
 clean data frame
 
@@ -69,6 +77,7 @@ df <- df %>%
 fig1a <- df |>
   group_by(yr) |>
   count() |>
+  filter(yr > 1980) |>
   ggplot(aes(x= yr, y = n)) + geom_line() +
   theme_classic() +
   labs( y = "number of articles", x = "")
@@ -152,12 +161,89 @@ a <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
+  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
+  theme_classic() + 
+  scale_y_break(c(2.5, 7.5)) +
+  theme(legend.position = "none",
+        axis.title.x = element_blank()) +
+  labs(y = "term frequency (per 10000 words)") +
+  expand_limits(x = c(1980, 2028)) +
+  geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
+```
+
+    ## `summarise()` has grouped output by 'yr', 'terms', 'subtheme'. You can override
+    ## using the `.groups` argument.
+
+``` r
+b <- df_aggregate %>%
+  filter(theme == "General trends" & subtheme == "Co-benefits") %>%
+  group_by(yr, terms, subtheme, theme) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
+  mutate(TF = count/total_words) %>%
+  filter(yr >1980 & yr<2021) %>% #drop_na() %>%
+  group_by(terms, subtheme) %>%
+  mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
+  #mutate(TF_03da = replace_na(TF_03da, 0)) %>%
+  mutate(TF = ifelse(yr>2018,NA,TF)) %>%
+  ungroup() %>% 
+  ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
+  geom_line(lwd = 1.2) + 
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
   labs(y = "term frequency (per 10000 words)") +
+  expand_limits(x = c(1980, 2028)) +
+  geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))# + facet_grid(cols = vars(subtheme))
+```
+
+    ## `summarise()` has grouped output by 'yr', 'terms', 'subtheme'. You can override
+    ## using the `.groups` argument.
+
+``` r
+library(patchwork)
+a+b+plot_annotation(tag_levels = 'A')
+```
+
+    ## Warning: Removed 24 row(s) containing missing values (geom_path).
+
+    ## Warning: Removed 24 rows containing missing values (geom_dl).
+
+    ## Warning: Removed 104 row(s) containing missing values (geom_path).
+
+    ## Warning: Removed 32 rows containing missing values (geom_dl).
+
+    ## Warning: Removed 104 row(s) containing missing values (geom_path).
+
+    ## Warning: Removed 32 rows containing missing values (geom_dl).
+
+![](analysis_files/figure-gfm/figure2a-1.png)<!-- -->
+
+``` r
+a <- df_aggregate %>%
+  filter(theme == "General trends" & subtheme == "Agroforestry types") %>%
+  group_by(yr, terms, subtheme, theme) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
+  mutate(TF = count/total_words) %>%
+  filter(yr >1980 & yr<2021) %>% #drop_na() %>%
+  group_by(terms, subtheme) %>%
+  mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
+  #mutate(TF_03da = replace_na(TF_03da, 0)) %>%
+  mutate(TF = ifelse(yr>2018,NA,TF)) %>%
+  ungroup() %>% 
+  ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
+  geom_line(lwd = 1.2) + 
+  scale_colour_met_d("Tam") +
+  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
+  theme_classic() + 
+  theme(legend.position = "none",
+        axis.title.x = element_blank()) +
+  labs(y = "term frequency (per 10000 words)") +
+  ylim(0,9) +
   expand_limits(x = c(1980, 2025)) +
   geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
 ```
@@ -180,7 +266,7 @@ b <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Veronese") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
@@ -198,15 +284,15 @@ library(patchwork)
 a+b+plot_annotation(tag_levels = 'A')
 ```
 
-    ## Warning: Removed 68 row(s) containing missing values (geom_path).
+    ## Warning: Removed 38 row(s) containing missing values (geom_path).
 
-    ## Warning: Removed 32 rows containing missing values (geom_dl).
+    ## Warning: Removed 52 rows containing missing values (geom_dl).
 
     ## Warning: Removed 24 row(s) containing missing values (geom_path).
 
     ## Warning: Removed 24 rows containing missing values (geom_dl).
 
-![](analysis_files/figure-gfm/figure2a-1.png)<!-- -->
+![](analysis_files/figure-gfm/figure2a_words-1.png)<!-- -->
 
 ``` r
 a <- df_aggregate %>%
@@ -223,7 +309,7 @@ a <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
@@ -251,7 +337,7 @@ b <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
@@ -269,11 +355,11 @@ library(patchwork)
 a+b+plot_annotation(tag_levels = 'A')
 ```
 
-    ## Warning: Removed 28 row(s) containing missing values (geom_path).
+    ## Warning: Removed 64 row(s) containing missing values (geom_path).
 
     ## Warning: Removed 28 rows containing missing values (geom_dl).
 
-    ## Warning: Removed 28 row(s) containing missing values (geom_path).
+    ## Warning: Removed 64 row(s) containing missing values (geom_path).
 
     ## Warning: Removed 28 rows containing missing values (geom_dl).
 
@@ -314,7 +400,7 @@ a <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
@@ -342,7 +428,7 @@ b <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
@@ -370,7 +456,7 @@ c <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
@@ -398,7 +484,7 @@ d <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
@@ -413,20 +499,20 @@ d <- df_aggregate %>%
 
 ``` r
 library(patchwork)
-(c+a)/(b+d) + plot_annotation(tag_levels = 'A')
+(b+a)/(c+d) + plot_annotation(tag_levels = 'A')
 ```
+
+    ## Warning: Removed 64 row(s) containing missing values (geom_path).
+
+    ## Warning: Removed 28 rows containing missing values (geom_dl).
+
+    ## Warning: Removed 64 row(s) containing missing values (geom_path).
+
+    ## Warning: Removed 28 rows containing missing values (geom_dl).
 
     ## Warning: Removed 20 row(s) containing missing values (geom_path).
 
     ## Warning: Removed 20 rows containing missing values (geom_dl).
-
-    ## Warning: Removed 28 row(s) containing missing values (geom_path).
-
-    ## Warning: Removed 28 rows containing missing values (geom_dl).
-
-    ## Warning: Removed 28 row(s) containing missing values (geom_path).
-
-    ## Warning: Removed 28 rows containing missing values (geom_dl).
 
     ## Warning: Removed 20 row(s) containing missing values (geom_path).
 
@@ -454,7 +540,7 @@ a <- df_aggregate %>%
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
-  labs(y = "term frequency (per 10000 words)") +
+  labs(y = "term frequency \n (per 10000 words)") +
   expand_limits(x = c(1980, 2025)) +
   geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
 ```
@@ -477,12 +563,12 @@ b <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
-  labs(y = "term frequency (per 10000 words)") +
+  labs(y = "term frequency \n (per 10000 words)") +
   expand_limits(x = c(1980, 2025)) +
   geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))# + facet_grid(cols = vars(subtheme))
 ```
@@ -505,12 +591,12 @@ c <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
-  labs(y = "term frequency (per 10000 words)") +
+  labs(y = "term frequency \n (per 10000 words)") +
   expand_limits(x = c(1980, 2025)) +
   geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
 ```
@@ -520,7 +606,7 @@ c <- df_aggregate %>%
 
 ``` r
 library(patchwork)
-(a+b+c) + plot_annotation(tag_levels = 'A') + plot_layout(nrow = 2, ncol = 2,  byrow = FALSE)
+(a+b+c) + plot_annotation(tag_levels = 'A') + plot_layout(nrow = 3, ncol = 1,  byrow = FALSE)
 ```
 
     ## Warning: Removed 20 row(s) containing missing values (geom_path).
@@ -531,7 +617,7 @@ library(patchwork)
 
     ## Warning: Removed 20 rows containing missing values (geom_dl).
 
-    ## Warning: Removed 188 row(s) containing missing values (geom_path).
+    ## Warning: Removed 224 row(s) containing missing values (geom_path).
 
     ## Warning: Removed 44 rows containing missing values (geom_dl).
 
@@ -552,12 +638,12 @@ a <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
-  labs(y = "term frequency (per 10000 words)") +
+  labs(y = "term frequency \n (per 10000 words)") +
   expand_limits(x = c(1980, 2025)) +
   geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
 ```
@@ -580,12 +666,12 @@ b <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
-  labs(y = "term frequency (per 10000 words)") +
+  labs(y = "term frequency \n (per 10000 words)") +
   expand_limits(x = c(1980, 2025)) +
   geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))# + facet_grid(cols = vars(subtheme))
 ```
@@ -608,12 +694,12 @@ c <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
-  labs(y = "term frequency (per 10000 words)") +
+  labs(y = "term frequency \n (per 10000 words)") +
   expand_limits(x = c(1980, 2025)) +
   geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
 ```
@@ -623,7 +709,7 @@ c <- df_aggregate %>%
 
 ``` r
 library(patchwork)
-(a+b+c) + plot_annotation(tag_levels = 'A')+  plot_layout(ncol = 2, byrow = FALSE)
+(a+b+c) + plot_annotation(tag_levels = 'A')+  plot_layout(ncol = 1, byrow = FALSE)
 ```
 
     ## Warning: Removed 12 row(s) containing missing values (geom_path).
@@ -634,7 +720,7 @@ library(patchwork)
 
     ## Warning: Removed 12 rows containing missing values (geom_dl).
 
-    ## Warning: Removed 28 row(s) containing missing values (geom_path).
+    ## Warning: Removed 64 row(s) containing missing values (geom_path).
 
     ## Warning: Removed 28 rows containing missing values (geom_dl).
 
@@ -814,7 +900,12 @@ df_aggregate_f4 <- df_aggregate %>%
             total_words = sum(total_words)) %>%
   mutate(TF_academic = count/total_words*1000) %>%
   select(yr, subtheme, TF_academic) %>%
-  filter(yr >1980 & yr<2021)
+  filter(yr >1980 & yr<2021) |>
+  mutate(subtheme = ifelse(subtheme == "Perspectives","Framework",
+                           ifelse(subtheme == "Power", "Equity",
+                                  ifelse(subtheme == "Co-benefits", "Ecological benefits",
+                                         ifelse(subtheme == "Culture and Perceptions", "Knowledge and culture", subtheme
+  )))))
 ```
 
     ## `summarise()` has grouped output by 'yr'. You can override using the `.groups`
@@ -822,6 +913,11 @@ df_aggregate_f4 <- df_aggregate %>%
 
 ``` r
 a <- df_aggregate_reports %>%
+  mutate(subtheme = ifelse(subtheme == "Perspectives","Framework",
+                           ifelse(subtheme == "Power", "Equity",
+                                  ifelse(subtheme == "Co-benefits", "Ecological benefits",
+                                         ifelse(subtheme == "Culture and Perceptions", "Knowledge and culture", subtheme
+  ))))) |>
   group_by(yr, subtheme) %>%
   summarise(count = sum(value),
             total_words = sum(total_words)) %>%
@@ -842,9 +938,15 @@ a <- df_aggregate_reports %>%
 
 ``` r
 b <- df_aggregate_reports %>%
-  group_by(yr, subtheme) %>%
-  summarise(count = sum(value),
-            total_words = sum(total_words)) %>%
+  mutate(subtheme = ifelse(subtheme == "Perspectives","Framework",
+                           ifelse(subtheme == "Power", "Equity",
+                                  ifelse(subtheme == "Co-benefits", "Ecological benefits",
+                                         ifelse(subtheme == "Culture and Perceptions", "Knowledge and culture", subtheme
+  ))))) |>
+  #group_by(subtheme) %>%
+  group_by(subtheme, yr) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
   mutate(TF_reports = count/total_words*1000) %>%
   filter(yr >1980 & yr<2021) %>% select(yr,  subtheme, TF_reports) %>%
   left_join(df_aggregate_f4) %>% 
@@ -856,8 +958,8 @@ b <- df_aggregate_reports %>%
   drop_na()
 ```
 
-    ## `summarise()` has grouped output by 'yr'. You can override using the `.groups`
-    ## argument.
+    ## `summarise()` has grouped output by 'subtheme'. You can override using the
+    ## `.groups` argument.
     ## Joining, by = c("yr", "subtheme")
     ## `mutate_all()` ignored the following grouping variables:
 

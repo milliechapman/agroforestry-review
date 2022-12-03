@@ -13,6 +13,7 @@ library(directlabels)
 library(zoo)
 library(MetBrewer)
 library(patchwork)
+library(ggbreak) 
 ```
 
 clean data frame
@@ -28,6 +29,7 @@ df <- df %>%
 fig1a <- df |>
   group_by(yr) |>
   count() |>
+  filter(yr > 1980) |>
   ggplot(aes(x= yr, y = n)) + geom_line() +
   theme_classic() +
   labs( y = "number of articles", x = "")
@@ -67,6 +69,8 @@ unique(df_aggregate$subtheme)
 ```
 
 
+
+
 ```{r}
 a <- df_aggregate %>%
   filter(theme == "General trends" & subtheme == "Agroforestry types") %>%
@@ -82,13 +86,14 @@ a <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
+  scale_y_break(c(2.5, 7.5)) +
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
   labs(y = "term frequency (per 10000 words)") +
-  expand_limits(x = c(1980, 2025)) +
+  expand_limits(x = c(1980, 2028)) +
   geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
 b <- df_aggregate %>%
   filter(theme == "General trends" & subtheme == "Co-benefits") %>%
@@ -104,7 +109,59 @@ b <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
+  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
+  theme_classic() + 
+  theme(legend.position = "none",
+        axis.title.x = element_blank()) +
+  labs(y = "term frequency (per 10000 words)") +
+  expand_limits(x = c(1980, 2028)) +
+  geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))# + facet_grid(cols = vars(subtheme))
+```
+```{r figure2a, fig.width=7.5, fig.height=3, dpi = 300}
+library(patchwork)
+a+b+plot_annotation(tag_levels = 'A')
+```
+```{r}
+a <- df_aggregate %>%
+  filter(theme == "General trends" & subtheme == "Agroforestry types") %>%
+  group_by(yr, terms, subtheme, theme) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
+  mutate(TF = count/total_words) %>%
+  filter(yr >1980 & yr<2021) %>% #drop_na() %>%
+  group_by(terms, subtheme) %>%
+  mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
+  #mutate(TF_03da = replace_na(TF_03da, 0)) %>%
+  mutate(TF = ifelse(yr>2018,NA,TF)) %>%
+  ungroup() %>% 
+  ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
+  geom_line(lwd = 1.2) + 
+  scale_colour_met_d("Tam") +
+  #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
+  theme_classic() + 
+  theme(legend.position = "none",
+        axis.title.x = element_blank()) +
+  labs(y = "term frequency (per 10000 words)") +
+  ylim(0,9) +
+  expand_limits(x = c(1980, 2025)) +
+  geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
+
+b <- df_aggregate %>%
+  filter(theme == "General trends" & subtheme == "Co-benefits") %>%
+  group_by(yr, terms, subtheme, theme) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
+  mutate(TF = count/total_words) %>%
+  filter(yr >1980 & yr<2021) %>% #drop_na() %>%
+  group_by(terms, subtheme) %>%
+  mutate(TF_03da = zoo::rollmean(TF, k = 5, fill = NA)) %>%
+  #mutate(TF_03da = replace_na(TF_03da, 0)) %>%
+  mutate(TF = ifelse(yr>2018,NA,TF)) %>%
+  ungroup() %>% 
+  ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
+  geom_line(lwd = 1.2) + 
+  scale_colour_met_d("Veronese") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
@@ -113,7 +170,8 @@ b <- df_aggregate %>%
   expand_limits(x = c(1980, 2025)) +
   geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))# + facet_grid(cols = vars(subtheme))
 ```
-```{r figure2a, fig.width=7.5, fig.height=3, dpi = 300}
+
+```{r figure2a_words, fig.width=7.5, fig.height=3, dpi = 300}
 library(patchwork)
 a+b+plot_annotation(tag_levels = 'A')
 ```
@@ -133,7 +191,7 @@ a <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
@@ -155,7 +213,7 @@ b <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
@@ -189,7 +247,7 @@ a <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
@@ -211,7 +269,7 @@ b <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
@@ -234,7 +292,7 @@ c <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
@@ -256,7 +314,7 @@ d <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
@@ -269,7 +327,7 @@ d <- df_aggregate %>%
 
 ```{r figure3, fig.width=7.5, fig.height=6, dpi = 300}
 library(patchwork)
-(c+a)/(b+d) + plot_annotation(tag_levels = 'A')
+(b+a)/(c+d) + plot_annotation(tag_levels = 'A')
 ```
 
 
@@ -297,7 +355,7 @@ a <- df_aggregate %>%
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
-  labs(y = "term frequency (per 10000 words)") +
+  labs(y = "term frequency \n (per 10000 words)") +
   expand_limits(x = c(1980, 2025)) +
   geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
 b <- df_aggregate %>%
@@ -314,12 +372,12 @@ b <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
-  labs(y = "term frequency (per 10000 words)") +
+  labs(y = "term frequency \n (per 10000 words)") +
   expand_limits(x = c(1980, 2025)) +
   geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))# + facet_grid(cols = vars(subtheme))
 
@@ -337,20 +395,20 @@ c <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
-  labs(y = "term frequency (per 10000 words)") +
+  labs(y = "term frequency \n (per 10000 words)") +
   expand_limits(x = c(1980, 2025)) +
   geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
 ```
 
 
-```{r figure4, fig.width=7.5, fig.height=6, dpi = 300}
+```{r figure4, fig.width=4, fig.height=6, dpi = 300}
 library(patchwork)
-(a+b+c) + plot_annotation(tag_levels = 'A') + plot_layout(nrow = 2, ncol = 2,  byrow = FALSE)
+(a+b+c) + plot_annotation(tag_levels = 'A') + plot_layout(nrow = 3, ncol = 1,  byrow = FALSE)
 ```
 
 ```{r}
@@ -368,12 +426,12 @@ a <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
-  labs(y = "term frequency (per 10000 words)") +
+  labs(y = "term frequency \n (per 10000 words)") +
   expand_limits(x = c(1980, 2025)) +
   geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
 b <- df_aggregate %>%
@@ -390,12 +448,12 @@ b <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
-  labs(y = "term frequency (per 10000 words)") +
+  labs(y = "term frequency \n (per 10000 words)") +
   expand_limits(x = c(1980, 2025)) +
   geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))# + facet_grid(cols = vars(subtheme))
 
@@ -413,20 +471,20 @@ c <- df_aggregate %>%
   ungroup() %>% 
   ggplot(aes(x = yr, y = TF_03da*10000, color = terms)) +
   geom_line(lwd = 1.2) + 
-  scale_colour_met_d("Degas") +
+  scale_colour_met_d("Lakota") +
   #geom_line((aes(x = yr, y = TF*1000, col = "grey", type = terms)), color = "grey") +
   theme_classic() + 
   theme(legend.position = "none",
         axis.title.x = element_blank()) +
-  labs(y = "term frequency (per 10000 words)") +
+  labs(y = "term frequency \n (per 10000 words)") +
   expand_limits(x = c(1980, 2025)) +
   geom_dl(aes(label = terms), method = list(dl.trans(x = x + 0.2), "last.points", cex = 0.5))
 ```
 
 
-```{r figure5, fig.width=7.5, fig.height=6, dpi = 300}
+```{r figure5, fig.width=4, fig.height=6, dpi = 300}
 library(patchwork)
-(a+b+c) + plot_annotation(tag_levels = 'A')+  plot_layout(ncol = 2, byrow = FALSE)
+(a+b+c) + plot_annotation(tag_levels = 'A')+  plot_layout(ncol = 1, byrow = FALSE)
 ```
 
 # reports
@@ -537,10 +595,20 @@ df_aggregate_f4 <- df_aggregate %>%
             total_words = sum(total_words)) %>%
   mutate(TF_academic = count/total_words*1000) %>%
   select(yr, subtheme, TF_academic) %>%
-  filter(yr >1980 & yr<2021)
+  filter(yr >1980 & yr<2021) |>
+  mutate(subtheme = ifelse(subtheme == "Perspectives","Framework",
+                           ifelse(subtheme == "Power", "Equity",
+                                  ifelse(subtheme == "Co-benefits", "Ecological benefits",
+                                         ifelse(subtheme == "Culture and Perceptions", "Knowledge and culture", subtheme
+  )))))
 
 
 a <- df_aggregate_reports %>%
+  mutate(subtheme = ifelse(subtheme == "Perspectives","Framework",
+                           ifelse(subtheme == "Power", "Equity",
+                                  ifelse(subtheme == "Co-benefits", "Ecological benefits",
+                                         ifelse(subtheme == "Culture and Perceptions", "Knowledge and culture", subtheme
+  ))))) |>
   group_by(yr, subtheme) %>%
   summarise(count = sum(value),
             total_words = sum(total_words)) %>%
@@ -557,9 +625,15 @@ a <- df_aggregate_reports %>%
 
 ```{r fig6, fig.height=4, fig.width=4, dpi=400}
 b <- df_aggregate_reports %>%
-  group_by(yr, subtheme) %>%
-  summarise(count = sum(value),
-            total_words = sum(total_words)) %>%
+  mutate(subtheme = ifelse(subtheme == "Perspectives","Framework",
+                           ifelse(subtheme == "Power", "Equity",
+                                  ifelse(subtheme == "Co-benefits", "Ecological benefits",
+                                         ifelse(subtheme == "Culture and Perceptions", "Knowledge and culture", subtheme
+  ))))) |>
+  #group_by(subtheme) %>%
+  group_by(subtheme, yr) %>%
+  summarise(count = sum(value, na.rm = TRUE),
+            total_words = sum(total_words, na.rm = TRUE)) %>%
   mutate(TF_reports = count/total_words*1000) %>%
   filter(yr >1980 & yr<2021) %>% select(yr,  subtheme, TF_reports) %>%
   left_join(df_aggregate_f4) %>% 
@@ -629,7 +703,6 @@ fig1b<-top_10 |>
   theme(legend.position = "none",
         axis.title.y = element_blank()) +
   labs(y = "term count") 
-
 
 ```
 
